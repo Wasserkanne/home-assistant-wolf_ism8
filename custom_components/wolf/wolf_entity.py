@@ -13,6 +13,20 @@ from .const import SensorType
 _LOGGER = logging.getLogger(__name__)
 
 
+def _version_tuple(version: str) -> tuple[int, ...]:
+    """Turn a firmware version like "4.10" into (4, 10) for a numeric comparison.
+
+    A plain string comparison would rank "4.10" below "4.9".
+    """
+    parts: list[int] = []
+    for part in str(version).split("."):
+        try:
+            parts.append(int(part))
+        except ValueError:
+            break
+    return tuple(parts) or (0,)
+
+
 def wolf_datapoint_filter(
     nbr: int,
     config_entry: ConfigEntry,
@@ -32,12 +46,11 @@ def wolf_datapoint_filter(
         return False
     if ism8.get_type(nbr) not in platforms:
         return False
-    if (
-        config_entry.data.get(CONF_SUPPRESS_UNSUPPORTED, True)
-        and ism8.first_fw_version(nbr) > fw_version
-    ):
-        _LOGGER.debug(f"Skipping dp {nbr}, min FW {ism8.first_fw_version(nbr)}")
-        return False
+    if config_entry.data.get(CONF_SUPPRESS_UNSUPPORTED, True):
+        min_fw = ism8.first_fw_version(nbr)
+        if _version_tuple(min_fw) > _version_tuple(fw_version):
+            _LOGGER.debug(f"Skipping dp {nbr}, min FW {min_fw}")
+            return False
     return True
 
 
@@ -84,10 +97,13 @@ class WolfEntity(Entity):
         self._ism8.register_callback(self.async_write_ha_state, self.dp_nbr)
 
     async def async_will_remove_from_hass(self) -> None:
-        """un-register callback and delete ISM8-reference when entity is removed."""
+        """un-register callback when entity is removed.
+
+        The ISM8 reference is kept on purpose: HA may still query the entity
+        (e.g. `available`) after removal, and None would raise AttributeError.
+        """
         _LOGGER.debug(f"remove_from_hass (entity {self._attr_name}) called")
         self._ism8.remove_callback(self.dp_nbr)
-        self._ism8 = None
 
     @property
     def native_value(self) -> float | int | str | None:

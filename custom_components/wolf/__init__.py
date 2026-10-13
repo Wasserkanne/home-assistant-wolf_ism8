@@ -10,6 +10,7 @@ from homeassistant.const import CONF_PORT
 from homeassistant.const import Platform
 from homeassistant.core import HomeAssistant
 from homeassistant.core import callback
+from homeassistant.exceptions import ConfigEntryNotReady
 from homeassistant.helpers import device_registry as dr
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from wolf_ism8 import Ism8
@@ -63,15 +64,17 @@ def _add_devices(registry: dr.DeviceRegistry, entry: ConfigEntry[WolfData]) -> N
 
 
 def _remove_devices(registry: dr.DeviceRegistry, entry: ConfigEntry[WolfData]) -> None:
-    """Remove old or deselected devices, so their entities don't linger."""
+    """Remove deselected devices, so their entities don't linger.
 
+    The ISM8 adapter device is identified by the entry id and is always kept.
+    Only devices carrying an identifier of this integration are considered.
+    """
     selected = set(entry.data[CONF_DEVICES])
     for device in dr.async_entries_for_config_entry(registry, entry.entry_id):
-        # The ISM8 adapter itself is top-level. All others are via -> Keep it always.
-        if device.via_device_id is None:
+        names = {ident for domain, ident in device.identifiers if domain == DOMAIN}
+        if not names or entry.entry_id in names:
             continue
-        identifier = list(device.identifiers)[0][1]
-        if identifier in selected:
+        if names & selected:
             continue
         _LOGGER.debug("removing deselected device %s", device.name)
         registry.async_remove_device(device.id)
@@ -81,11 +84,17 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry[WolfData]) -
     """set up the integration"""
     ism8 = Ism8()
 
-    server = await hass.loop.create_server(
-        ism8.factory,
-        host=entry.data[CONF_HOST],
-        port=entry.data[CONF_PORT],
-    )
+    try:
+        server = await hass.loop.create_server(
+            ism8.factory,
+            host=entry.data[CONF_HOST],
+            port=entry.data[CONF_PORT],
+        )
+    except OSError as err:
+        # e.g. port already in use: retry later instead of failing hard
+        raise ConfigEntryNotReady(
+            f"cannot listen on {entry.data[CONF_HOST]}:{entry.data[CONF_PORT]}: {err}"
+        ) from err
 
     entry.runtime_data = WolfData(
         protocol=ism8,
@@ -168,13 +177,22 @@ async def async_update_device_info(
             configuration_url=f"http://{ip_address}",
         )
 
-        # Persist FW version so next boot knows it without connection
+        # Persist FW version so next boot knows it without connection.
+        # A changed FW version changes which entities exist, so the entry is
+        # reloaded. Without reload the new entities would only appear on the
+        # next HA restart.
         if sw_version and sw_version != entry.runtime_data.fw_version:
-            _LOGGER.info("detected FW change on ISM8. New sensors on next start/boot.")
+            _LOGGER.info(
+                "ISM8 firmware changed from %s to %s, reloading entry",
+                entry.runtime_data.fw_version,
+                sw_version,
+            )
+            entry.runtime_data.fw_version = sw_version
             hass.config_entries.async_update_entry(
                 entry,
                 data={**entry.data, CONF_FW_VERSION: sw_version},
             )
+            hass.config_entries.async_schedule_reload(entry.entry_id)
 
     except Exception as err:
         _LOGGER.error("Unexpected error updating ISM8 device info: %s", err)
