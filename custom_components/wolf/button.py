@@ -12,6 +12,8 @@ from .wolf_entity import WolfEntity
 
 _LOGGER = logging.getLogger(__name__)
 
+SYSTEM_CONTROLLER = "Systembedienmodul"
+
 
 async def async_setup_entry(
     hass: HomeAssistant,
@@ -27,14 +29,18 @@ async def async_setup_entry(
         if ism8.get_device(nbr) in config_entry.data[CONF_DEVICES]:
             buttons.append(WolfButton(ism8, nbr))
 
-    buttons.append(WolfRequestDataButton(ism8))
+    # The request button belongs to the system controller device. It is only
+    # created if that device is selected, otherwise it would re-create a device
+    # the user deselected.
+    if SYSTEM_CONTROLLER in config_entry.data[CONF_DEVICES]:
+        buttons.append(WolfRequestDataButton(ism8))
     async_add_entities(buttons)
 
 
 class WolfButton(WolfEntity, ButtonEntity):
     """
-    Button representation for ISM8 datapoints which can
-    be triggered to start certain processes on ISM8
+    Button representation for ISM8 datapoints which can be
+    triggered to start certain processes on ISM8
     """
 
     def __init__(self, ism8, dp_nbr: int) -> None:
@@ -64,7 +70,7 @@ class WolfRequestDataButton(ButtonEntity):
 
     def __init__(self, ism8) -> None:
         self._ism8 = ism8
-        self._device = "Systembedienmodul"
+        self._device = SYSTEM_CONTROLLER
         self._attr_name = "Datenanforderung"
         self._attr_device_info = DeviceInfo(
             identifiers={(DOMAIN, self._device)},

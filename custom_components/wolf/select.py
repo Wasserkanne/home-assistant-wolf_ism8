@@ -2,7 +2,6 @@ import logging
 
 from homeassistant.components.select import SelectEntity
 from homeassistant.config_entries import ConfigEntry
-from homeassistant.const import STATE_UNKNOWN
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
@@ -69,17 +68,14 @@ class WolfSelect(WolfEntity, SelectEntity):
 
     def __init__(self, ism8, dp_nbr: int) -> None:
         super().__init__(ism8, dp_nbr)
-        if ism8.get_type(dp_nbr) == SensorType.DPT_SWITCH:
-            self._attr_options = ["True", "False"]
-        else:
-            self._attr_options = [str(opt) for opt in self._value_range]
+        self._attr_options = [str(opt) for opt in self._value_range]
 
     @property
     def current_option(self) -> str | None:
-        """Return state of selection"""
-        _prog = str(self._ism8.read_sensor(self.dp_nbr))
-        _LOGGER.debug(f"current_option from ISM: {_prog}")
-        return STATE_UNKNOWN if _prog is None else _prog
+        """Return state of selection, None if unknown"""
+        value = self._ism8.read_sensor(self.dp_nbr)
+        _LOGGER.debug(f"current_option from ISM: {value}")
+        return None if value is None else str(value)
 
     async def async_select_option(self, option: str) -> None:
         """Change the selected option."""
@@ -100,14 +96,14 @@ class WolfProgramSelect(WolfEntity, SelectEntity):
 
     @property
     def current_option(self) -> str | None:
-        """Return state of selection"""
+        """Return state of selection, None if unknown"""
         if self._ism8.read_sensor(self.dp_nbr) == 1:
             return "1"
         if self._ism8.read_sensor(self.dp_nbr + 1) == 1:
             return "2"
         if self._ism8.read_sensor(self.dp_nbr + 2) == 1:
             return "3"
-        return STATE_UNKNOWN
+        return None
 
     async def async_added_to_hass(self) -> None:
         """Register callbacks for all 3 datapoints which may affect this entity."""
@@ -117,5 +113,4 @@ class WolfProgramSelect(WolfEntity, SelectEntity):
 
     async def async_select_option(self, option: str) -> None:
         """Change the selected option."""
-        # _LOGGER.debug(f"set dp {self.dp_nbr} + offset {int(option) - 1}")
         self._ism8.send_dp_value(self.dp_nbr + (int(option) - 1), 1)
