@@ -90,5 +90,16 @@
                 }
             }
         }
+    },
+    "options": {
+        "step": {
+            "init": {
+                "title": "WOLF ISM8i Optionen",
+                "description": "Fordert in diesem Abstand alle Datenpunkte vom ISM8 an – wie ein Druck auf den Button \"Datenanforderung\" (0 = aus). Jede Anfrage fragt alle ausgewählten Datenpunkte auf einmal ab, kurze Intervalle belasten den KNX-Bus.",
+                "data": {
+                    "request_interval": "Alle Datenpunkte anfordern alle (Minuten, 0 = aus)"
+                }
+            }
+        }
     }
 }
