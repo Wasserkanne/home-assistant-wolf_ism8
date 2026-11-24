@@ -1,4 +1,11 @@
 # Changelog
+## 5.0.1 (2026-11-24)
+### Added
+- Option "Alle Datenpunkte anfordern alle (Minuten)" in den Integrationseinstellungen
+  (Einstellungen -> Geraete & Dienste -> WOLF -> Konfigurieren). 0 = aus, Standard 0.
+  Ersetzt eine HA-Automation, die regelmaessig den Button "Datenanforderung" ausloest.
+- manifest.json Versionssprung, damit HACS das Update anbietet.
+
 ## 5.0 (2026-11-15)
 ### Added
 - Major version bump since several things have changed on user side. This includes
