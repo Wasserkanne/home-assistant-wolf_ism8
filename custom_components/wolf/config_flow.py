@@ -6,13 +6,21 @@ from homeassistant import config_entries
 from homeassistant.const import CONF_DEVICES
 from homeassistant.const import CONF_HOST
 from homeassistant.const import CONF_PORT
+from homeassistant.core import callback
 from homeassistant.data_entry_flow import section
+from homeassistant.helpers.selector import NumberSelector
+from homeassistant.helpers.selector import NumberSelectorConfig
+from homeassistant.helpers.selector import NumberSelectorMode
 from wolf_ism8 import Ism8
 
+from .const import CONF_REQUEST_INTERVAL
 from .const import CONF_SUPPRESS_UNSUPPORTED
 from .const import DEFAULT_HOST
 from .const import DEFAULT_PORT
+from .const import DEFAULT_REQUEST_INTERVAL
 from .const import DOMAIN
+from .const import MAX_REQUEST_INTERVAL
+from .const import MIN_REQUEST_INTERVAL
 from .const import WOLF_DEFAULT_DEVICES
 
 WOLF_HOST_SCHEMA = {
@@ -43,6 +51,12 @@ WOLF_DEVICE_SCHEMA = {
 
 class WolfConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     """wolf config flow"""
+
+    @staticmethod
+    @callback
+    def async_get_options_flow(config_entry: config_entries.ConfigEntry):
+        """Return the options flow of this entry."""
+        return WolfOptionsFlow(config_entry)
 
     def __init__(self) -> None:
         """Initialize with empty host and port."""
@@ -137,5 +151,42 @@ class WolfConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                         )
                     },
                 },
+            ),
+        )
+
+
+
+class WolfOptionsFlow(config_entries.OptionsFlow):
+    """Options: how often all datapoints are requested from the ISM8."""
+
+    def __init__(self, entry: config_entries.ConfigEntry) -> None:
+        """Remember the entry to read its current options."""
+        self._entry = entry
+
+    async def async_step_init(self, user_input=None):
+        """Ask for the request interval."""
+        if user_input is not None:
+            return self.async_create_entry(title="", data=user_input)
+
+        current = self._entry.options.get(
+            CONF_REQUEST_INTERVAL,
+            self._entry.data.get(CONF_REQUEST_INTERVAL, DEFAULT_REQUEST_INTERVAL),
+        )
+        return self.async_show_form(
+            step_id="init",
+            data_schema=vol.Schema(
+                {
+                    vol.Optional(
+                        CONF_REQUEST_INTERVAL, default=current
+                    ): NumberSelector(
+                        NumberSelectorConfig(
+                            min=MIN_REQUEST_INTERVAL,
+                            max=MAX_REQUEST_INTERVAL,
+                            step=1,
+                            unit_of_measurement="min",
+                            mode=NumberSelectorMode.BOX,
+                        )
+                    ),
+                }
             ),
         )

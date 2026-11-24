@@ -90,5 +90,16 @@
                 }
             }
         }
+    },
+    "options": {
+        "step": {
+            "init": {
+                "title": "WOLF ISM8i options",
+                "description": "Requests all datapoints from the ISM8 at this interval, just like pressing the \"Request data\" button (0 = off). Every request polls all selected datapoints at once, so short intervals put load on the KNX bus.",
+                "data": {
+                    "request_interval": "Request all datapoints every (minutes, 0 = off)"
+                }
+            }
+        }
     }
 }

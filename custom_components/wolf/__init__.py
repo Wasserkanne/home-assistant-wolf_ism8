@@ -2,6 +2,7 @@ import asyncio
 import logging
 import re
 from dataclasses import dataclass
+from datetime import timedelta
 from functools import partial
 
 from homeassistant.config_entries import ConfigEntry
@@ -13,9 +14,12 @@ from homeassistant.core import HomeAssistant
 from homeassistant.core import callback
 from homeassistant.helpers import device_registry as dr
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
+from homeassistant.helpers.event import async_track_time_interval
 from wolf_ism8 import Ism8
 
 from .const import CONF_FW_VERSION
+from .const import CONF_REQUEST_INTERVAL
+from .const import DEFAULT_REQUEST_INTERVAL
 from .const import DOMAIN
 from .const import STARTUP_MESSAGE
 from .const import WOLF
@@ -31,6 +35,23 @@ class WolfData:
     protocol: Ism8
     server: asyncio.Server
     fw_version: str = ""
+
+
+def request_interval_minutes(entry: ConfigEntry) -> int:
+    """Configured interval of the periodic data request, in minutes (0 = off)."""
+    raw = entry.options.get(
+        CONF_REQUEST_INTERVAL,
+        entry.data.get(CONF_REQUEST_INTERVAL, DEFAULT_REQUEST_INTERVAL),
+    )
+    try:
+        return max(0, int(raw))
+    except (TypeError, ValueError):
+        return DEFAULT_REQUEST_INTERVAL
+
+
+async def _async_update_listener(hass: HomeAssistant, entry: ConfigEntry) -> None:
+    """Reload the entry on option changes, so the timer is created anew."""
+    await hass.config_entries.async_reload(entry.entry_id)
 
 
 PLATFORMS = [
@@ -124,9 +145,38 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry[WolfData]) -
     # register the unloading callback, to free resources when unloaded
     entry.async_on_unload(partial(async_close_server, server, ism8))
 
+    # optional: request all datapoints periodically (same as the button does)
+    interval_minutes = request_interval_minutes(entry)
+    if interval_minutes > 0:
+        _LOGGER.debug("requesting all ISM8 datapoints every %s min", interval_minutes)
+        entry.async_on_unload(
+            async_track_time_interval(
+                hass,
+                partial(_async_request_all_datapoints, hass, entry),
+                timedelta(minutes=interval_minutes),
+            )
+        )
+
+    # reload when the options (interval) change
+    entry.async_on_unload(entry.add_update_listener(_async_update_listener))
+
     # now setup the entities, regardless of connection
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
     return True
+
+
+async def _async_request_all_datapoints(
+    hass: HomeAssistant, entry: ConfigEntry[WolfData], _now=None
+) -> None:
+    """Request all datapoints from the ISM8, if the connection is alive."""
+    ism8 = entry.runtime_data.protocol
+    if not ism8.connected():
+        _LOGGER.debug("ISM8 not connected, skipping scheduled data request")
+        return
+    try:
+        await hass.async_add_executor_job(ism8.request_all_datapoints)
+    except Exception as err:  # noqa: BLE001 - a failure must not kill the timer
+        _LOGGER.warning("Scheduled ISM8 data request failed: %s", err)
 
 
 async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry[WolfData]) -> bool:

@@ -4,8 +4,14 @@ from typing import Final
 DOMAIN: Final = "wolf"
 CONF_FW_VERSION: Final = "fw_version"
 CONF_SUPPRESS_UNSUPPORTED: Final = "suppress_unsupported"
+CONF_REQUEST_INTERVAL: Final = "request_interval"
 
 KEEPALIVE_WATCHDOG_TIMEOUT: Final = 90
+
+# periodic "Datenanforderung" (request_all_datapoints) in minutes, 0 = off
+DEFAULT_REQUEST_INTERVAL: Final = 0
+MIN_REQUEST_INTERVAL: Final = 0
+MAX_REQUEST_INTERVAL: Final = 1440
 
 DEFAULT_HOST: Final = "0.0.0.0"
 DEFAULT_PORT: Final = 12004

@@ -34,6 +34,7 @@ An integration of WOLF's Heating ISM8 module into Home Assistant. The integratio
 2. **Devices:** Select your own devices — tick only the ones actually installed. Others won't be created.
 3. **Suppress unsupported sensors:** Leaves out datapoints your ISM8 firmware does not deliver yet. Unknown firmware disables the filter until the version has been read.
 4. Both settings can be changed later via **Reconfigure** on the integration entry.
+5. **Request interval (optional):** under **Configure -> Options** you can have all datapoints requested from the ISM8 every N minutes — the same as pressing the "Request data" button. `0` turns the timer off. Each request polls all datapoints at once, so keep the interval moderate (5–60 min).
 
 ---
 
@@ -62,7 +63,8 @@ Eine Home Assistant Integration für das WOLF ISM8 Modul. Die Integration stellt
 1. **IP/Port:** IP-Adresse und Port des HA-Servers angeben, auf dem die Integration lauscht (Standard: `0.0.0.0` (wartet auf allen verfügbaren IP adressen) und `12004`). Diese Werte müssen im ISM8 hinterlegt sein.
 2. **Geräte:** Eigene Geräte auswählen — nur die tatsächlich installierten Geräte anhaken. Andere Geräte werden dann nicht angelegt.
 3. **Nicht unterstützte Sensoren unterdrücken:** Lässt Datenpunkte weg, die die ISM8-Firmware noch nicht liefert. Bei unbekannter Firmware bleibt der Filter aus, bis die Version gelesen wurde.
-4. Beide Einstellungen lassen sich später über **Neu konfigurieren** am Integrationseintrag ändern.
+4. Diese Einstellungen lassen sich später über **Neu konfigurieren** am Integrationseintrag ändern.
+5. **Abfrage-Intervall (optional):** Unter **Konfigurieren -> Optionen** lässt sich einstellen, dass alle N Minuten alle Datenpunkte vom ISM8 angefordert werden — wie ein Druck auf den Button „Datenanforderung“. `0` schaltet den Timer ab. Jede Anfrage fragt alle Datenpunkte auf einmal ab, deshalb das Intervall nicht zu kurz wählen (5–60 min).
 
 ---
 
